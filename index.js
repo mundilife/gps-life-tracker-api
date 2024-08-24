@@ -34,29 +34,32 @@ const authenticateApiKey = async (req, res, next) => {
 
 // User registration
 app.post('/api/register', async (req, res) => {
+  const start = Date.now();
+  console.log('Registration request received');
   try {
     const { email, password } = req.body;
     
-    console.log('Registration attempt for email:', email);
+    console.log(`Registration attempt for email: ${email}`);
 
     if (!email || !password) {
       console.log('Registration failed: Email or password missing');
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
+    console.log('Checking for existing user');
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       console.log('Registration failed: User already exists');
       return res.status(400).json({ error: 'User already exists' });
     }
     
-    console.log('Hashing password...');
+    console.log('Hashing password');
     const passwordHash = await bcrypt.hash(password, 10);
     
-    console.log('Generating API key...');
+    console.log('Generating API key');
     const apiKey = crypto.randomBytes(32).toString('hex');
     
-    console.log('Creating new user...');
+    console.log('Creating new user');
     const newUser = new User({
       email,
       passwordHash,
@@ -64,14 +67,16 @@ app.post('/api/register', async (req, res) => {
       lastLogin: new Date()
     });
     
-    console.log('Saving new user to database...');
+    console.log('Saving new user to database');
     await newUser.save();
     
-    console.log('User registered successfully');
+    const end = Date.now();
+    console.log(`User registered successfully. Total time: ${end - start}ms`);
     res.status(201).json({ apiKey });
   } catch (error) {
-    console.error('Registration error:', error);
-    res.status(500).json({ error: 'Registration failed', details: error.message, stack: error.stack });
+    const end = Date.now();
+    console.error(`Registration error: ${error}. Total time: ${end - start}ms`);
+    res.status(500).json({ error: 'Registration failed', details: error.message });
   }
 });
 
