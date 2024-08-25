@@ -9,12 +9,75 @@ app.use(express.json());
 
 const MONGODB_URI = process.env.MONGODB_URI;
 
+console.log('Attempting to connect to MongoDB...');
+console.log('MongoDB URI:', MONGODB_URI ? MONGODB_URI.replace(/\/\/.*@/, '//<credentials>@') : 'MONGODB_URI is undefined');
+
+mongoose.set('strictQuery', false); // Handle deprecation warning
+
+const connectToMongoDB = async () => {
+  try {
+    await mongoose.connect(MONGODB_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    console.log('Connected to MongoDB successfully');
+    const db = mongoose.connection;
+    console.log('Database name:', db.name);
+    console.log('Host:', db.host);
+    console.log('Port:', db.port);
+  } catch (err) {
+    console.error('MongoDB connection error:', err);
+    if (err.name === 'MongoParseError') {
+      console.error('Invalid MongoDB connection string. Please check your MONGODB_URI environment variable.');
+    } else if (err.name === 'MongoNetworkError') {
+      console.error('Network error when connecting to MongoDB. Please check your network connection and MongoDB server status.');
+    }
+    process.exit(1); // Exit the process if unable to connect to MongoDB
+  }
+};
+
+// Connect to MongoDB
+connectToMongoDB();
+
+// Add a root route
+app.get('/', (req, res) => {
+  res.json({ message: 'Welcome to the GPS Life Tracker API' });
+});
+
+// Add a test route to check MongoDB connection
+app.get('/api/test-db', async (req, res) => {
+  try {
+    if (mongoose.connection.readyState === 1) {
+      res.json({ message: 'MongoDB connection successful' });
+    } else {
+      throw new Error('MongoDB not connected');
+    }
+  } catch (error) {
+    res.status(500).json({ error: 'MongoDB connection failed', details: error.message });
+  }
+});
+
 mongoose.connect(MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
-.then(() => console.log('Connected to MongoDB'))
-.catch((err) => console.error('MongoDB connection error:', err));
+.then(() => {
+  console.log('Connected to MongoDB successfully');
+  // Log information about the connection
+  const db = mongoose.connection;
+  console.log('Database name:', db.name);
+  console.log('Host:', db.host);
+  console.log('Port:', db.port);
+})
+.catch((err) => {
+  console.error('MongoDB connection error:', err);
+  if (err.name === 'MongoParseError') {
+    console.error('Invalid MongoDB connection string. Please check your MONGODB_URI environment variable.');
+  } else if (err.name === 'MongoNetworkError') {
+    console.error('Network error when connecting to MongoDB. Please check your network connection and MongoDB server status.');
+  }
+  process.exit(1); // Exit the process if unable to connect to MongoDB
+});
 
 // Middleware for API key authentication
 const authenticateApiKey = async (req, res, next) => {
@@ -124,6 +187,11 @@ app.get('/api/locations', authenticateApiKey, async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: 'Error fetching locations' });
   }
+});
+
+// Add a test route to check if the server is running
+app.get('/api/test', (req, res) => {
+  res.json({ message: 'Server is running' });
 });
 
 module.exports = app;
