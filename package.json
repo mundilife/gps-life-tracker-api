@@ -1,4 +1,7 @@
 {
+  "engines": {
+    "node": "14.x"
+  },
   "name": "gps-life-tracker-api",
   "version": "1.0.0",
   "description": "",
@@ -15,6 +18,5 @@
     "mongodb": "^4.11.0",
     "mongoose": "^6.7.2",
     "bcrypt": "^5.1.0",
-    "crypto": "^1.0.1"
   }
 }
