@@ -5,6 +5,8 @@ const crypto = require('crypto');
 const User = require('./userModel');
 const app = express();
 
+console.log('Application starting...');
+
 app.use(express.json());
 
 const MONGODB_URI = process.env.MONGODB_URI;
@@ -12,7 +14,7 @@ const MONGODB_URI = process.env.MONGODB_URI;
 console.log('Attempting to connect to MongoDB...');
 console.log('MongoDB URI:', MONGODB_URI ? MONGODB_URI.replace(/\/\/.*@/, '//<credentials>@') : 'MONGODB_URI is undefined');
 
-mongoose.set('strictQuery', false); // Handle deprecation warning
+mongoose.set('strictQuery', false);
 
 const connectToMongoDB = async () => {
   try {
@@ -32,20 +34,18 @@ const connectToMongoDB = async () => {
     } else if (err.name === 'MongoNetworkError') {
       console.error('Network error when connecting to MongoDB. Please check your network connection and MongoDB server status.');
     }
-    process.exit(1); // Exit the process if unable to connect to MongoDB
   }
 };
 
-// Connect to MongoDB
 connectToMongoDB();
 
-// Add a root route
 app.get('/', (req, res) => {
+  console.log('Root route accessed');
   res.json({ message: 'Welcome to the GPS Life Tracker API' });
 });
 
-// Add a test route to check MongoDB connection
 app.get('/api/test-db', async (req, res) => {
+  console.log('Test DB route accessed');
   try {
     if (mongoose.connection.readyState === 1) {
       res.json({ message: 'MongoDB connection successful' });
@@ -57,26 +57,9 @@ app.get('/api/test-db', async (req, res) => {
   }
 });
 
-mongoose.connect(MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-.then(() => {
-  console.log('Connected to MongoDB successfully');
-  // Log information about the connection
-  const db = mongoose.connection;
-  console.log('Database name:', db.name);
-  console.log('Host:', db.host);
-  console.log('Port:', db.port);
-})
-.catch((err) => {
-  console.error('MongoDB connection error:', err);
-  if (err.name === 'MongoParseError') {
-    console.error('Invalid MongoDB connection string. Please check your MONGODB_URI environment variable.');
-  } else if (err.name === 'MongoNetworkError') {
-    console.error('Network error when connecting to MongoDB. Please check your network connection and MongoDB server status.');
-  }
-  process.exit(1); // Exit the process if unable to connect to MongoDB
+app.get('/api/test', (req, res) => {
+  console.log('Test route accessed');
+  res.json({ message: 'Server is running' });
 });
 
 // Middleware for API key authentication
@@ -145,25 +128,30 @@ app.post('/api/register', async (req, res) => {
 
 // User login
 app.post('/api/login', async (req, res) => {
+  console.log('Login request received');
   try {
     const { email, password } = req.body;
     
     const user = await User.findOne({ email });
     if (!user || !(await user.comparePassword(password))) {
+      console.log('Login failed: Invalid credentials');
       return res.status(401).json({ error: 'Invalid credentials' });
     }
     
     user.lastLogin = new Date();
     await user.save();
     
+    console.log('User logged in successfully');
     res.json({ apiKey: user.apiKey });
   } catch (error) {
+    console.error('Login error:', error);
     res.status(500).json({ error: 'Login failed' });
   }
 });
 
 // Protected route for saving location data
 app.post('/api/location', authenticateApiKey, async (req, res) => {
+  console.log('Location save request received');
   try {
     const { latitude, longitude } = req.body;
     const location = new Location({
@@ -173,25 +161,30 @@ app.post('/api/location', authenticateApiKey, async (req, res) => {
       timestamp: Date.now()
     });
     await location.save();
+    console.log('Location saved successfully');
     res.status(201).json({ message: 'Location saved successfully' });
   } catch (error) {
+    console.error('Error saving location:', error);
     res.status(500).json({ error: 'Error saving location' });
   }
 });
 
 // Protected route for fetching location data
 app.get('/api/locations', authenticateApiKey, async (req, res) => {
+  console.log('Location fetch request received');
   try {
     const locations = await Location.find({ userId: req.user._id }).sort({ timestamp: -1 }).limit(100);
+    console.log(`Fetched ${locations.length} locations`);
     res.json(locations);
   } catch (error) {
+    console.error('Error fetching locations:', error);
     res.status(500).json({ error: 'Error fetching locations' });
   }
 });
 
-// Add a test route to check if the server is running
-app.get('/api/test', (req, res) => {
-  res.json({ message: 'Server is running' });
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
 });
 
 module.exports = app;
