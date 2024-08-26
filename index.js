@@ -3,6 +3,11 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const User = require('./userModel');
+const path = require('path');
+
+// Load environment variables from .env file
+require('dotenv').config({ path: path.resolve(__dirname, '.env') });
+
 const app = express();
 
 console.log('Application starting...');
@@ -17,6 +22,11 @@ console.log('MongoDB URI:', MONGODB_URI ? MONGODB_URI.replace(/\/\/.*@/, '//<cre
 mongoose.set('strictQuery', false);
 
 const connectToMongoDB = async () => {
+  if (!MONGODB_URI) {
+    console.error('MONGODB_URI is not defined. Please set it in your environment variables or .env file.');
+    process.exit(1);
+  }
+
   try {
     await mongoose.connect(MONGODB_URI, {
       useNewUrlParser: true,
@@ -29,11 +39,7 @@ const connectToMongoDB = async () => {
     console.log('Port:', db.port);
   } catch (err) {
     console.error('MongoDB connection error:', err);
-    if (err.name === 'MongoParseError') {
-      console.error('Invalid MongoDB connection string. Please check your MONGODB_URI environment variable.');
-    } else if (err.name === 'MongoNetworkError') {
-      console.error('Network error when connecting to MongoDB. Please check your network connection and MongoDB server status.');
-    }
+    process.exit(1);
   }
 };
 
@@ -182,15 +188,6 @@ app.get('/api/locations', authenticateApiKey, async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 3000;
-if (process.env.NODE_ENV !== 'production') {
-  app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-  });
-}
-
-module.exports = app;
-
 // Handle all routes
 app.use('*', (req, res) => {
   res.status(404).json({ error: 'Not Found' });
@@ -202,12 +199,17 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Something went wrong!' });
 });
 
-// For local development
-if (process.env.NODE_ENV !== 'production') {
-  const PORT = process.env.PORT || 3000;
-  app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-  });
-}
+const PORT = process.env.PORT || 3000;
+
+const server = app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+}).on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.log(`Port ${PORT} is busy. Trying port ${PORT + 1}`);
+    server.listen(PORT + 1);
+  } else {
+    console.error('Server error:', err);
+  }
+});
 
 module.exports = app;
